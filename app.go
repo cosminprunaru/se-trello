@@ -18,9 +18,6 @@ import (
 var config = seconfig.Config{}
 var dao = mongodao.BoardsDAO{}
 
-var lastListID = 0
-var lastCardID = 0
-
 /**************************************
 Boards methods
 **************************************/
