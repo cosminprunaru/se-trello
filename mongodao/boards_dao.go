@@ -24,10 +24,12 @@ const (
 
 //Connect -> Establish connection to db
 func (m *BoardsDAO) Connect() {
+	log.Println("Trying to connect to Mongo DB ...")
 	session, err := mgo.Dial(m.Server)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("Mongo error: " + err.Error())
 	}
+	session.SetSafe(&mgo.Safe{})
 	db = session.DB(m.Database)
 }
 
@@ -52,8 +54,9 @@ func (m *BoardsDAO) Insert(board models.Board) error {
 }
 
 //DeleteByID -> Delete an existing board
-func (m *BoardsDAO) DeleteByID(id string) error {
-	err := db.C(BOARDS).RemoveId(id)
+func (m *BoardsDAO) DeleteByID(name string) error {
+	collection := db.C(BOARDS)
+	err := collection.Remove(bson.M{"name": name})
 	return err
 }
 

@@ -22,6 +22,7 @@ var dao = mongodao.BoardsDAO{}
 Boards methods
 **************************************/
 func getAllBoardsEndPoint(w http.ResponseWriter, r *http.Request) {
+	log.Println("Received getAllBoards request...")
 	boards, err := dao.FindAll()
 	if err != nil {
 		json.NewEncoder(w).Encode(http.StatusBadRequest)
@@ -34,6 +35,8 @@ func getBoardByIDEndPoint(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	id := params["boardId"]
 
+	log.Println("Received getBoardByID " + id + " request...")
+
 	board, err := dao.FindByID(id)
 
 	if err != nil {
@@ -45,6 +48,7 @@ func getBoardByIDEndPoint(w http.ResponseWriter, r *http.Request) {
 
 func createBoardEndPoint(w http.ResponseWriter, r *http.Request) {
 	var board models.Board
+	log.Println("Received createBoard request...")
 
 	_ = json.NewDecoder(r.Body).Decode(&board)
 
@@ -56,11 +60,13 @@ func createBoardEndPoint(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(http.StatusBadRequest)
 		return
 	}
-	json.NewEncoder(w).Encode(board)
+	boards, _ := dao.FindAll()
+	json.NewEncoder(w).Encode(boards)
 }
 
 func updateBoardEndPoint(w http.ResponseWriter, r *http.Request) {
 	var board models.Board
+	log.Println("Received updateBoard request...")
 
 	_ = json.NewDecoder(r.Body).Decode(&board)
 
@@ -69,19 +75,24 @@ func updateBoardEndPoint(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(http.StatusBadRequest)
 		return
 	}
-	json.NewEncoder(w).Encode(http.StatusOK)
+	boards, _ := dao.FindAll()
+	json.NewEncoder(w).Encode(boards)
 }
 
 func deleteBoardEndPoint(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
-	id := params["boardId"]
+	name := params["boardId"]
 
-	err := dao.DeleteByID(id)
+	// please only add/delete boards with unique names
+	log.Println("Received deleteBoard with name: " + name + "...")
+	err := dao.DeleteByID(name)
 	if err != nil {
+		log.Println(err)
 		json.NewEncoder(w).Encode(http.StatusBadRequest)
 		return
 	}
-	json.NewEncoder(w).Encode(http.StatusOK)
+	boards, _ := dao.FindAll()
+	json.NewEncoder(w).Encode(boards)
 }
 
 /**************************************
@@ -100,6 +111,7 @@ func getBoardByID(r *http.Request) models.Board {
 }
 
 func getAllListsEndPoint(w http.ResponseWriter, r *http.Request) {
+	log.Println("Received getAllLists request...")
 	board := getBoardByID(r)
 	json.NewEncoder(w).Encode(board.Lists)
 }
@@ -120,6 +132,7 @@ func getListByIDEndPoint(w http.ResponseWriter, r *http.Request) {
 }
 
 func createListEndPoint(w http.ResponseWriter, r *http.Request) {
+	log.Println("Received createList request...")
 	var list models.BoardList
 	listID := -1
 	board := getBoardByID(r)
@@ -141,10 +154,11 @@ func createListEndPoint(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(http.StatusBadRequest)
 		return
 	}
-	json.NewEncoder(w).Encode(list)
+	json.NewEncoder(w).Encode(board)
 }
 
 func updateListEndPoint(w http.ResponseWriter, r *http.Request) {
+	log.Println("Received updateList request...")
 	board := getBoardByID(r)
 	var list models.BoardList
 
@@ -154,28 +168,29 @@ func updateListEndPoint(w http.ResponseWriter, r *http.Request) {
 		if reflect.DeepEqual(board.Lists[i].ID, list.ID) {
 			board.Lists[i] = list
 			dao.Update(board)
-			json.NewEncoder(w).Encode(list)
+			json.NewEncoder(w).Encode(board)
 			return
 		}
 	}
-	json.NewEncoder(w).Encode(http.StatusNotFound)
+	json.NewEncoder(w).Encode(board)
 }
 
 func deleteListEndPoint(w http.ResponseWriter, r *http.Request) {
 	board := getBoardByID(r)
-	var list models.BoardList
 
-	_ = json.NewDecoder(r.Body).Decode(&list)
+	params := mux.Vars(r)
+	id := params["listId"]
 
+	log.Println("Received deleteList request " + id + "...")
 	for i := 0; i < len(board.Lists); i++ {
-		if reflect.DeepEqual(board.Lists[i].ID, list.ID) {
+		if reflect.DeepEqual(board.Lists[i].ID, id) {
 			board.Lists = append(board.Lists[:i], board.Lists[i+1:]...)
 			dao.Update(board)
-			json.NewEncoder(w).Encode(http.StatusOK)
+			json.NewEncoder(w).Encode(board)
 			return
 		}
 	}
-	json.NewEncoder(w).Encode(http.StatusNotFound)
+	json.NewEncoder(w).Encode(board)
 }
 
 /**************************************
@@ -201,6 +216,7 @@ func getListByID(r *http.Request) models.BoardList {
 }
 
 func getAllCardsEndPoint(w http.ResponseWriter, r *http.Request) {
+	log.Println("Received deleteAllCards request...")
 	list := getListByID(r)
 	json.NewEncoder(w).Encode(list.Cards)
 }
@@ -221,6 +237,7 @@ func getCardByIDEndPoint(w http.ResponseWriter, r *http.Request) {
 }
 
 func createCardEndPoint(w http.ResponseWriter, r *http.Request) {
+	log.Println("Received createCard request...")
 	var card models.Card
 	cardID := -1
 	board := getBoardByID(r)
@@ -229,7 +246,8 @@ func createCardEndPoint(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewDecoder(r.Body).Decode(&card)
 
 	for i := 0; i < len(list.Cards); i++ {
-		id, _ := strconv.Atoi(board.Lists[i].ID)
+		listID, _ := strconv.Atoi(list.ID)
+		id, _ := strconv.Atoi(board.Lists[listID].Cards[i].ID)
 		if cardID < id {
 			cardID = id
 		}
@@ -247,10 +265,11 @@ func createCardEndPoint(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(http.StatusBadRequest)
 		return
 	}
-	json.NewEncoder(w).Encode(http.StatusOK)
+	json.NewEncoder(w).Encode(board)
 }
 
 func updateCardEndPoint(w http.ResponseWriter, r *http.Request) {
+	log.Println("Received updateCard request...")
 	board := getBoardByID(r)
 	list := getListByID(r)
 
@@ -264,36 +283,44 @@ func updateCardEndPoint(w http.ResponseWriter, r *http.Request) {
 				if reflect.DeepEqual(list.Cards[j].ID, card.ID) {
 					board.Lists[i].Cards[j] = card
 					dao.Update(board)
-					json.NewEncoder(w).Encode(http.StatusOK)
+					json.NewEncoder(w).Encode(board)
 					return
 				}
 			}
 		}
 	}
-	json.NewEncoder(w).Encode(http.StatusNotFound)
+	json.NewEncoder(w).Encode(board)
 }
 
 func deleteCardEndPoint(w http.ResponseWriter, r *http.Request) {
+	log.Println("Received deleteCard request...")
 	board := getBoardByID(r)
 	list := getListByID(r)
 
-	var card models.Card
-
-	_ = json.NewDecoder(r.Body).Decode(&card)
+	params := mux.Vars(r)
+	cardID := params["cardId"]
 
 	for i := 0; i < len(board.Lists); i++ {
 		if reflect.DeepEqual(board.Lists[i].ID, list.ID) {
-			for j := 0; j < len(list.Cards); j++ {
-				if reflect.DeepEqual(list.Cards[j].ID, card.ID) {
+			for j := 0; j < len(board.Lists[i].Cards); j++ {
+				if reflect.DeepEqual(board.Lists[i].Cards[j].ID, cardID) {
 					board.Lists[i].Cards = append(board.Lists[i].Cards[:j], board.Lists[i].Cards[j+1:]...)
 					dao.Update(board)
-					json.NewEncoder(w).Encode(http.StatusOK)
+					json.NewEncoder(w).Encode(board)
 					return
 				}
 			}
 		}
 	}
-	json.NewEncoder(w).Encode(http.StatusNotFound)
+	json.NewEncoder(w).Encode(board)
+}
+
+func getOptions(w http.ResponseWriter, r *http.Request) {
+	log.Println("Received getOptions for CORS")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "POST GET DELETE PUT OPTIONS")
+
+	json.NewEncoder(w).Encode(http.StatusOK)
 }
 
 // Parse the configuration file 'config.toml', and establish a connection to DB
@@ -310,25 +337,32 @@ func main() {
 
 	log.Println("Starting REST API on localhost:3000")
 
+	r.HandleFunc("/boards", getOptions).Methods("OPTIONS")
+	r.HandleFunc("/boards/{boardId}", getOptions).Methods("OPTIONS")
+	r.HandleFunc("/boards/{boardId}/lists", getOptions).Methods("OPTIONS")
+	r.HandleFunc("/boards/{boardId}/lists/{listId}", getOptions).Methods("OPTIONS")
+	r.HandleFunc("/boards/{boardId}/lists/{listId}/cards", getOptions).Methods("OPTIONS")
+	r.HandleFunc("/boards/{boardId}/lists/{listId}/cards/{cardId}", getOptions).Methods("OPTIONS")
+
 	// Handlers for boards
 	r.HandleFunc("/boards", getAllBoardsEndPoint).Methods("GET")
 	r.HandleFunc("/boards", createBoardEndPoint).Methods("POST")
 	r.HandleFunc("/boards", updateBoardEndPoint).Methods("PUT")
-	r.HandleFunc("/boards", deleteBoardEndPoint).Methods("DELETE")
+	r.HandleFunc("/boards/{boardId}", deleteBoardEndPoint).Methods("DELETE")
 	r.HandleFunc("/boards/{boardId}", getBoardByIDEndPoint).Methods("GET")
 
 	// Handlers for lists
 	r.HandleFunc("/boards/{boardId}/lists", getAllListsEndPoint).Methods("GET")
 	r.HandleFunc("/boards/{boardId}/lists", createListEndPoint).Methods("POST")
 	r.HandleFunc("/boards/{boardId}/lists", updateListEndPoint).Methods("PUT")
-	r.HandleFunc("/boards/{boardId}/lists", deleteListEndPoint).Methods("DELETE")
+	r.HandleFunc("/boards/{boardId}/lists/{listId}", deleteListEndPoint).Methods("DELETE")
 	r.HandleFunc("/boards/{boardId}/lists/{listId}", getListByIDEndPoint).Methods("GET")
 
 	// Handlers for cards
 	r.HandleFunc("/boards/{boardId}/lists/{listId}/cards", getAllCardsEndPoint).Methods("GET")
 	r.HandleFunc("/boards/{boardId}/lists/{listId}/cards", createCardEndPoint).Methods("POST")
 	r.HandleFunc("/boards/{boardId}/lists/{listId}/cards", updateCardEndPoint).Methods("PUT")
-	r.HandleFunc("/boards/{boardId}/lists/{listId}/cards", deleteCardEndPoint).Methods("DELETE")
+	r.HandleFunc("/boards/{boardId}/lists/{listId}/cards/{cardId}", deleteCardEndPoint).Methods("DELETE")
 	r.HandleFunc("/boards/{boardId}/lists/{listId}/cards/{cardId}", getCardByIDEndPoint).Methods("GET")
 
 	if err := http.ListenAndServe(":3000", r); err != nil {
